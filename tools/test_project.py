@@ -28,12 +28,28 @@ class ProjectTest(unittest.TestCase):
         self.assertNotIn('Utilidades Android', seed['categorias'])
     def test_app_name_and_private_storage(self):
         manifest = ET.parse(ROOT / 'app/src/main/AndroidManifest.xml').getroot()
-        self.assertEqual(len(manifest.findall('uses-permission')), 0)
+        permissions = {p.get(ANDROID+'name'): p for p in manifest.findall('uses-permission')}
+        self.assertEqual(set(permissions), {
+            'android.permission.BLUETOOTH', 'android.permission.BLUETOOTH_ADMIN',
+            'android.permission.ACCESS_FINE_LOCATION', 'android.permission.BLUETOOTH_SCAN',
+            'android.permission.BLUETOOTH_CONNECT'})
+        self.assertEqual(permissions['android.permission.ACCESS_FINE_LOCATION'].get(ANDROID+'maxSdkVersion'), '30')
+        self.assertEqual(permissions['android.permission.BLUETOOTH_SCAN'].get(ANDROID+'usesPermissionFlags'), 'neverForLocation')
         app = manifest.find('application')
         self.assertEqual(app.get(ANDROID+'allowBackup'), 'false')
         self.assertEqual(app.get(ANDROID+'icon'), '@mipmap/ic_launcher')
         strings = ET.parse(ROOT / 'app/src/main/res/values/strings.xml').getroot()
         self.assertEqual(strings.find("string[@name='app_name']").text, 'ABCell Móvil')
+    def test_receipt_sharing_is_scoped(self):
+        manifest = ET.parse(ROOT / 'app/src/main/AndroidManifest.xml').getroot()
+        provider = manifest.find('application/provider')
+        self.assertEqual(provider.get(ANDROID+'exported'), 'false')
+        self.assertEqual(provider.get(ANDROID+'grantUriPermissions'), 'true')
+        paths = ET.parse(ROOT / 'app/src/main/res/xml/file_paths.xml').getroot()
+        self.assertEqual([(p.tag, p.get('path')) for p in paths], [('cache-path','receipts/')])
+        for activity in manifest.findall('application/activity'):
+            if activity.get(ANDROID+'name') != '.MainActivity':
+                self.assertEqual(activity.get(ANDROID+'exported'), 'false')
     def test_no_desktop_or_adb_payload(self):
         files = list((ROOT / 'app/src/main').rglob('*'))
         self.assertFalse(any(p.suffix in {'.exe','.dll','.py'} for p in files))

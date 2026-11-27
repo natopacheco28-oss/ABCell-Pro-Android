@@ -18,11 +18,15 @@ Las diferencias de negocio intencionadas son:
 
 ## Validación automatizada
 
-- Python: existencia de las seis tablas, carga de semillas originales, nombre/iconos y ausencia de permisos y payload de escritorio/ADB.
+- Python: existencia de las seis tablas, carga de semillas originales, nombre/iconos, permisos Bluetooth acotados, FileProvider privado y ausencia de payload de escritorio/ADB.
 - JUnit local: importes exactos, separador decimal, límites, saldo, rechazos de cantidades inválidas y sobrepagos.
 - Instrumentación Android: semillas, creación/anticipo, abono, persistencia tras reapertura, pagos inválidos sin escrituras, límites de edición, entrega sin cobro ficticio, respaldo/restauración, reversión ante respaldo inválido, borrado con hijos y propagación del nombre de ubicación.
 - Navegación Android: apertura, recepción, conservación del borrador al recrear actividad y menú de herramientas sin Utilidades Android.
+- Notas: límites del contenido, composición, privacidad, logo portable, ejemplos PNG para cada perfil y texto largo.
+- ESC/POS: anchos, empaquetado de bits, bandas parciales, transparencia, errores de transporte y corte opcional.
 - Lint Android y ensamblado de APK.
+
+La versión 0.2.0 agrega notas gráficas y Bluetooth; véase [IMPRESION.md](IMPRESION.md).
 
 GitHub Actions ejecuta las pruebas de dispositivo en API 29 y 35. Definirlas no equivale a que ya hayan pasado: consulta el estado de cada ejecución y sus reportes en Actions. No hay pruebas automáticas de envío real de WhatsApp, impresora física, permisos de proveedores de documentos o todos los tamaños/tipos de teléfono.
 
@@ -35,7 +39,7 @@ GitHub Actions ejecuta las pruebas de dispositivo en API 29 y 35. Definirlas no 
 - [ ] Probar teléfono pequeño, orientación horizontal, teclado y tamaño de fuente aumentado.
 - [ ] Crear/editar productos, agotar existencias y comprobar los filtros de inventario.
 - [ ] Crear/editar servicios y ubicaciones; intentar eliminar una ubicación utilizada.
-- [ ] Guardar datos del taller; compartir ticket y guardar PDF; verificar que no salen PIN, patrón ni notas internas.
+- [ ] Guardar datos del taller; compartir ticket y guardar PDF; verificar que no salen PIN/patrón con la opción por defecto, que solo aparecen al activarla y que las notas internas nunca salen.
 - [ ] Probar impresión con el servicio Android de la impresora que se utilizará.
 - [ ] Abrir WhatsApp y verificar cliente, estado y saldo antes de enviar.
 - [ ] Exportar un respaldo, copiarlo fuera del teléfono, restaurarlo en una instalación de pruebas y comparar datos y ajustes.

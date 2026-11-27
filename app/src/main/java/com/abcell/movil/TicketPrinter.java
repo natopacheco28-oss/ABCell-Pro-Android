@@ -1,81 +1,55 @@
 package com.abcell.movil;
 
 import android.app.Activity;
-import android.graphics.Canvas;
-import android.graphics.Color;
-import android.graphics.Paint;
-import android.os.Bundle;
-import android.os.CancellationSignal;
-import android.os.ParcelFileDescriptor;
-import android.print.PageRange;
-import android.print.PrintAttributes;
-import android.print.PrintDocumentAdapter;
-import android.print.PrintDocumentInfo;
-import android.print.PrintManager;
-import android.print.pdf.PrintedPdfDocument;
+import android.graphics.*;
 import android.graphics.pdf.PdfDocument;
+import android.os.*;
+import android.print.*;
+import android.print.pdf.PrintedPdfDocument;
 import java.io.FileOutputStream;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
-/** Uses Android's print framework (including Save as PDF), not Windows printer drivers. */
+/** Prints the composed graphic, not a second text-only template. Default media is an actual roll. */
 public final class TicketPrinter extends PrintDocumentAdapter {
     private final Activity activity;
-    private final String text, name;
+    private final Bitmap image;
+    private final String name;
     private PrintAttributes attributes;
-    private final List<String> lines = new ArrayList<>();
-    private int linesPerPage, pageCount;
-    private static final float LINE_HEIGHT = 17;
-    private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-
-    private TicketPrinter(Activity activity, String text, String name) {
-        this.activity=activity; this.text=text; this.name=name;
-        paint.setColor(Color.BLACK); paint.setTextSize(11);
-    }
-    public static void print(Activity activity, String text, String name) {
+    private int pages;
+    private TicketPrinter(Activity activity,Bitmap image,String name){this.activity=activity;this.image=image;this.name=name;}
+    public static void print(Activity activity,Bitmap image,PaperProfile paper,String name){
+        if(image==null)throw new IllegalArgumentException("Espera a que se genere la nota.");
+        int useful=paper.widthMils()-2*paper.marginMils();
+        int height=Math.max(1000,Math.round(useful*(float)image.getHeight()/image.getWidth())+2*paper.marginMils());
         PrintManager manager=(PrintManager)activity.getSystemService(Activity.PRINT_SERVICE);
-        manager.print(name,new TicketPrinter(activity,text,name),new PrintAttributes.Builder()
-                .setMediaSize(PrintAttributes.MediaSize.ISO_A5).setMinMargins(new PrintAttributes.Margins(300,300,300,300)).build());
+        manager.print(name,new TicketPrinter(activity,image,name),new PrintAttributes.Builder()
+                .setMediaSize(new PrintAttributes.MediaSize("ABCELL_ROLL_"+paper.key,"Rollo "+paper.millimeters+" mm",paper.widthMils(),height))
+                .setMinMargins(new PrintAttributes.Margins(paper.marginMils(),paper.marginMils(),paper.marginMils(),paper.marginMils()))
+                .setColorMode(PrintAttributes.COLOR_MODE_MONOCHROME).build());
     }
-    @Override public void onLayout(PrintAttributes oldAttributes, PrintAttributes newAttributes,
-                                   CancellationSignal cancel, LayoutResultCallback callback, Bundle extras) {
-        if(cancel.isCanceled()){callback.onLayoutCancelled();return;}
-        attributes=newAttributes; lines.clear();
-        PrintedPdfDocument document=new PrintedPdfDocument(activity,attributes);
-        try {
-            float width=document.getPageContentRect().width();
-            linesPerPage=Math.max(1,(int)(document.getPageContentRect().height()/LINE_HEIGHT)-1);
-            for(String paragraph:text.split("\n",-1)) {
-                if(paragraph.isEmpty()){lines.add("");continue;}
-                String remaining=paragraph;
-                while(!remaining.isEmpty()) {
-                    int n=paint.breakText(remaining,true,width,null);
-                    if(n<=0)n=1;
-                    if(n<remaining.length()) {int space=remaining.lastIndexOf(' ',n);if(space>0)n=space;}
-                    lines.add(remaining.substring(0,n));remaining=remaining.substring(n).trim();
-                }
-            }
-            pageCount=Math.max(1,(lines.size()+linesPerPage-1)/linesPerPage);
-            callback.onLayoutFinished(new PrintDocumentInfo.Builder(name+".pdf").setContentType(PrintDocumentInfo.CONTENT_TYPE_DOCUMENT).setPageCount(pageCount).build(),true);
-        } catch(Exception e){callback.onLayoutFailed("No se pudo preparar el ticket.");}
-        finally { document.close(); }
+    @Override public void onLayout(PrintAttributes old,PrintAttributes next,CancellationSignal cancel,LayoutResultCallback callback,Bundle extras){
+        if(cancel.isCanceled()){callback.onLayoutCancelled();return;}attributes=next;
+        PrintedPdfDocument doc=new PrintedPdfDocument(activity,next);
+        try{
+            Rect area=doc.getPageContentRect();
+            if(area.width()<=0||area.height()<=0){callback.onLayoutFailed("El servicio de impresión no ofrece un área imprimible válida.");return;}
+            pages=Math.max(1,(int)Math.ceil(image.getHeight()*(double)area.width()/image.getWidth()/area.height()));
+            callback.onLayoutFinished(new PrintDocumentInfo.Builder(name+".pdf").setContentType(PrintDocumentInfo.CONTENT_TYPE_DOCUMENT).setPageCount(pages).build(),true);
+        }catch(Exception e){callback.onLayoutFailed("No se pudo preparar la nota gráfica.");}finally{doc.close();}
     }
-    @Override public void onWrite(PageRange[] ranges, ParcelFileDescriptor destination,
-                                  CancellationSignal cancel, WriteResultCallback callback) {
-        List<PageRange> written=new ArrayList<>();
-        PrintedPdfDocument doc=new PrintedPdfDocument(activity,attributes);
-        try(FileOutputStream out=new FileOutputStream(destination.getFileDescriptor())) {
-            for(int p=0;p<pageCount;p++) {
+    @Override public void onWrite(PageRange[] ranges,ParcelFileDescriptor destination,CancellationSignal cancel,WriteResultCallback callback){
+        PrintedPdfDocument doc=new PrintedPdfDocument(activity,attributes);List<PageRange> written=new ArrayList<>();
+        try(FileOutputStream out=new FileOutputStream(destination.getFileDescriptor())){
+            Rect area=doc.getPageContentRect();float scale=area.width()/(float)image.getWidth();
+            Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
+            for(int p=0;p<pages;p++){
                 if(cancel.isCanceled()){callback.onWriteCancelled();return;}
-                boolean selected=false;for(PageRange r:ranges)if(p>=r.getStart()&&p<=r.getEnd())selected=true;
-                if(!selected)continue;
-                PdfDocument.Page page=doc.startPage(p);Canvas canvas=page.getCanvas();
-                int start=p*linesPerPage,end=Math.min(lines.size(),start+linesPerPage);
-                for(int i=start;i<end;i++)canvas.drawText(lines.get(i),0,(i-start+1)*LINE_HEIGHT,paint);
-                doc.finishPage(page);written.add(new PageRange(p,p));
+                boolean included=false;for(PageRange r:ranges)if(p>=r.getStart()&&p<=r.getEnd())included=true;if(!included)continue;
+                PdfDocument.Page page=doc.startPage(p);Canvas c=page.getCanvas();
+                c.save();c.clipRect(0,0,area.width(),area.height());c.translate(0,-p*area.height());c.scale(scale,scale);c.drawBitmap(image,0,0,paint);c.restore();doc.finishPage(page);written.add(new PageRange(p,p));
             }
+            if(cancel.isCanceled()){callback.onWriteCancelled();return;}
             doc.writeTo(out);callback.onWriteFinished(written.toArray(new PageRange[0]));
-        } catch(Exception e){callback.onWriteFailed("No se pudo guardar o imprimir el ticket.");}
-        finally { doc.close(); }
+        }catch(Exception e){callback.onWriteFailed("No se pudo imprimir o guardar el PDF.");}finally{doc.close();}
     }
 }

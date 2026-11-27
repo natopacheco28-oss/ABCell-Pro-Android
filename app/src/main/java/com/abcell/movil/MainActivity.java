@@ -29,7 +29,7 @@ import java.util.concurrent.Executors;
 public final class MainActivity extends Activity {
     private static final int BG = 0xff0c111b, CARD = 0xff151e2c, LINE = 0xff2a3849;
     private static final int TEXT = 0xffedf2f7, MUTED = 0xff9baabd, LIME = 0xffc5f467, RED = 0xffff9595;
-    private static final int EXPORT = 41, IMPORT = 42;
+    private static final int EXPORT = 41, IMPORT = 42, LOGO = 43;
     private WorkshopDb db;
     private LinearLayout root, body, content;
     private String screen = "home", search = "", filter = "Todos", itemTable = "inventario";
@@ -37,6 +37,7 @@ public final class MainActivity extends Activity {
     private final Map<String, View> fields = new LinkedHashMap<>();
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private boolean busy;
+    private ImageView logoPreview;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -282,8 +283,8 @@ public final class MainActivity extends Activity {
         if(WorkshopDb.amount(o,"saldo")>0&&!o.optString("estatus").equals("Cancelado"))button(body,"+  Registrar abono",true,()->payment(o));
         button(body,"Cambiar estado / ubicación",false,()->statusDialog(o));
         button(body,"Editar datos de la orden",false,()->go("orderForm"));
-        button(body,"Compartir ticket",false,()->share(ticket(o),"Ticket #"+selectedId));
-        button(body,"Imprimir / guardar ticket PDF",false,()->TicketPrinter.print(this,ticket(o),"ABCell-"+selectedId));
+        button(body,"Ver / compartir nota digital",true,()->startActivity(new Intent(this,ReceiptActivity.class).putExtra("folio",selectedId)));
+        button(body,"Imprimir nota por Bluetooth",false,()->startActivity(new Intent(this,BluetoothPrinterActivity.class).putExtra("folio",selectedId)));
         button(body,"Enviar estado por WhatsApp",false,()->whatsapp(o));
         label(body,"HISTORIAL DE ABONOS");
         List<JSONObject> payments=db.rows("SELECT * FROM pagos_orden WHERE folio=? ORDER BY id DESC",""+selectedId);
@@ -316,10 +317,6 @@ public final class MainActivity extends Activity {
         })));dialog.show();
     }
     private void confirm(String title,String message,Runnable action){new AlertDialog.Builder(this).setTitle(title).setMessage(message).setNegativeButton("Cancelar",null).setPositiveButton("Confirmar",(d,w)->safe(action)).show();}
-    private String ticket(JSONObject o) {
-        return db.setting("nombre","Mi taller")+"\n"+db.setting("direccion","")+"\nTel. "+db.setting("telefono","")+"\n\nORDEN #"+o.optLong("folio")+"\n"+o.optString("fecha_ingreso")+"\nCliente: "+o.optString("cliente_nombre")+"\nEquipo: "+o.optString("marca")+" "+o.optString("modelo")+"\nFalla: "+o.optString("falla")+"\nServicio: "+o.optString("servicio_nombre")+"\nEstado: "+o.optString("estatus")+"\n\nTotal: "+money(o,"costo_total")+"\nAbonado: "+money(o,"anticipo")+"\nSaldo: "+money(o,"saldo")+"\n\n"+db.setting("garantia","Conserva esta nota para recoger tu equipo.")+"\n\nGenerado con ABCell Móvil";
-    }
-    private void share(String text,String subject){Intent i=new Intent(Intent.ACTION_SEND);i.setType("text/plain");i.putExtra(Intent.EXTRA_TEXT,text);i.putExtra(Intent.EXTRA_SUBJECT,subject);startActivity(Intent.createChooser(i,"Compartir con…"));}
     private void whatsapp(JSONObject o) {
         String phone=o.optString("cliente_tel").replaceAll("[^0-9]","");if(phone.length()==10)phone="52"+phone;
         if(phone.length()<11||phone.length()>15)throw new IllegalArgumentException("Revisa el teléfono e incluye el código de país (por ejemplo +52).");
@@ -391,13 +388,23 @@ public final class MainActivity extends Activity {
     private void more() {
         title("Herramientas del taller","Más","Todo lo necesario para organizar tu negocio.");
         button(body,"Catálogo de servicios",false,()->go("servicios_catalogo"));button(body,"Ubicaciones",false,()->go("ubicaciones"));button(body,"Reportes",false,()->go("reports"));button(body,"Configuración y respaldos",false,()->go("settings"));
-        LinearLayout c=card(body);c.addView(text("ABCell Móvil · 0.1.0",18,TEXT));c.addView(text("Adaptación nativa de ABCell Pro\nAutoría original: ABCell Profecional",14,MUTED));
+        button(body,"Impresora Bluetooth · 58 / 80 mm",false,()->startActivity(new Intent(this,BluetoothPrinterActivity.class)));
+        button(body,"Vista previa de nota de prueba",false,()->startActivity(new Intent(this,ReceiptActivity.class)));
+        LinearLayout c=card(body);c.addView(text("ABCell Móvil · 0.2.0",18,TEXT));c.addView(text("Adaptación nativa de ABCell Pro\nAutoría original: ABCell Profecional",14,MUTED));
         c.addView(text("Tus datos se guardan en este dispositivo. No hay sincronización automática con la versión de escritorio. Exporta respaldos periódicamente.",14,MUTED));
     }
     private void settings() {
         title("Personaliza tu espacio","Mi taller","Estos datos aparecerán en los próximos tickets.");
         field("nombre","Nombre del taller *",db.setting("nombre","Mi taller"));field(body,"telefono","Teléfono / WhatsApp",db.setting("telefono",""),InputType.TYPE_CLASS_PHONE);
         multiline("direccion","Dirección",db.setting("direccion",""));multiline("garantia","Políticas y garantía",db.setting("garantia","Conserva esta nota para recoger tu equipo."));
+        field("ticket_thanks","Texto de agradecimiento",db.setting("ticket_thanks","¡Gracias por su preferencia!"));
+        choice("ticket_access","¿Incluir PIN y patrón en las notas compartidas e impresas?",new String[]{"No","Sí"},db.setting("ticket_access","No"));
+        body.addView(text("Por privacidad se ocultan por defecto. Si activas Sí, saldrán tanto en el PNG como en la impresión. Las notas internas nunca salen.",13,MUTED));
+        label(body,"LOGO DEL TALLER EN LA NOTA");
+        logoPreview=new ImageView(this);logoPreview.setAdjustViewBounds(true);logoPreview.setMaxHeight(dp(110));logoPreview.setContentDescription("Logo personalizado del taller");logoPreview.setImageBitmap(ReceiptLogo.decode(db.setting("ticket_logo","")));body.addView(logoPreview,new LinearLayout.LayoutParams(-1,dp(110)));
+        button(body,"Elegir logo PNG / JPG / WebP",false,()->{Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("image/*");startActivityForResult(i,LOGO);});
+        button(body,"Quitar logo de las notas",false,()->{JSONObject data=new JSONObject();put(data,"ticket_logo","");db.settings(data);logoPreview.setImageDrawable(null);toast("Logo retirado");});
+        body.addView(text("El logo se guarda al elegirlo y se incluye en los respaldos. Es independiente del icono de ABCell Móvil; no se usa el icono como sustituto del logo de tu taller.",13,MUTED));
         button(body,"Guardar configuración",true,()->{if(value("nombre").isEmpty())throw new IllegalArgumentException("Escribe el nombre del taller.");db.settings(fieldData());toast("Configuración guardada");go("more");});
         label(body,"RESPALDOS LOCALES");body.addView(text("El respaldo incluye clientes, equipos, PIN, abonos y configuración. Guárdalo en un lugar privado. No está cifrado. Desinstalar la aplicación elimina sus datos locales.",14,MUTED));
         button(body,"Exportar respaldo JSON",false,()->{
@@ -411,6 +418,15 @@ public final class MainActivity extends Activity {
     @Override protected void onActivityResult(int request,int result,Intent data) {
         super.onActivityResult(request,result,data);if(result!=RESULT_OK||data==null||data.getData()==null)return;
         Uri uri=data.getData();
+        if(request==LOGO){
+            busy=true;setEnabled(root,false);toast("Preparando logo…");
+            io.execute(()->{
+                Exception failure=null;
+                try{String encoded=ReceiptLogo.importImage(this,uri);JSONObject setting=new JSONObject();put(setting,"ticket_logo",encoded);db.settings(setting);}catch(Exception e){failure=e;}
+                final Exception failed=failure;
+                runOnUiThread(()->{busy=false;if(isFinishing()||isDestroyed())return;setEnabled(root,true);if(failed!=null)error(failed);else{if(logoPreview!=null)logoPreview.setImageBitmap(ReceiptLogo.decode(db.setting("ticket_logo","")));toast("Logo guardado. Guarda los demás datos del taller antes de generar la nota.");}});
+            });return;
+        }
         if(request==EXPORT)backupWork(()->{
             byte[] bytes=db.snapshot().toString(2).getBytes(StandardCharsets.UTF_8);
             try(OutputStream out=getContentResolver().openOutputStream(uri,"wt")){if(out==null)throw new IllegalArgumentException("No se pudo abrir el archivo de destino.");out.write(bytes);}

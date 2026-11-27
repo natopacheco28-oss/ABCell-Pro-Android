@@ -1,6 +1,6 @@
 # ABCell Móvil · Android
 
-Adaptación **nativa Android** del administrador de talleres [ABCell Pro](https://github.com/natopacheco28-oss/ABCell-Pro). Nombre instalado: **ABCell Móvil**. Paquete: `com.abcell.movil`. Android **8.0 o posterior** (API 26). Primera versión: **0.1.0**.
+Adaptación **nativa Android** del administrador de talleres [ABCell Pro](https://github.com/natopacheco28-oss/ABCell-Pro). Nombre instalado: **ABCell Móvil**. Paquete: `com.abcell.movil`. Android **8.0 o posterior** (API 26). Versión: **0.2.0**.
 
 El icono utiliza el emblema del logo original, sin la leyenda «Pro». **No existe la opción Utilidades Android, ni se empaqueta ADB.** El repositorio de escritorio no se modifica.
 
@@ -14,7 +14,9 @@ El icono utiliza el emblema del logo original, sin la leyenda «Pro». **No exis
 - Alta, edición y eliminación de servicios y ubicaciones. Selección de servicio y precio al recibir un equipo.
 - Reportes globales de cobros, cuentas pendientes, margen estimado de entregas y valor del inventario.
 - Configuración del nombre, contacto, dirección y políticas del taller.
-- Ticket de texto compartible, ticket imprimible/guardable como PDF mediante el sistema Android y apertura de mensaje de estado en WhatsApp. Nunca se comparten PIN, patrón ni notas internas en estos documentos.
+- Nota gráfica basada en la nota digital de PC: logo del taller, folio destacado, secciones, recuadro de importes, garantía y agradecimiento; vista previa, PNG compartible y PDF/impresión Android.
+- Detección y vinculación Bluetooth; impresión directa de la misma composición en térmicas **58/80 mm Bluetooth clásico SPP + ESC/POS raster**, con perfiles de 384, 576 y 512 puntos y nota de prueba. [Uso y compatibilidad](docs/IMPRESION.md).
+- PIN/patrón ocultos por defecto, con activación explícita opcional; notas internas siempre ocultas. Apertura de mensaje de estado en WhatsApp.
 - Exportación y restauración de respaldos JSON mediante el selector de documentos Android. Una restauración inválida revierte toda la transacción.
 - Formularios desplazables y conservación del borrador del formulario principal al recrear la actividad, por ejemplo al girar el teléfono.
 
@@ -24,10 +26,10 @@ Esta es una **base funcional inicial**, no una conversión completa ni una répl
 
 - Los datos se guardan **solo en este dispositivo**, en SQLite privado. No hay servidor, cuentas, sincronización con PC ni importación directa de la base `.db` de escritorio. El respaldo JSON es propio de Móvil.
 - Entregar una orden **no inventa un cobro**. El saldo se conserva; se pide confirmación si se entrega con deuda. Registra el pago real por separado.
-- La impresión utiliza Android Print Framework. Necesita un servicio de impresión compatible para la impresora física; también permite «Guardar como PDF». No implementa conexión directa Bluetooth/USB ESC/POS de 58 mm.
+- La impresión Bluetooth directa requiere SPP + ESC/POS GS v 0. No admite BLE-only ni protocolos propietarios; el ancho debe seleccionarse, no se infiere con certeza por Bluetooth. No hay validación física con tu modelo todavía. El camino Android Print Framework/PDF sigue disponible para otros servicios compatibles.
 - WhatsApp abre un mensaje para que el usuario confirme el envío; no lo envía en segundo plano ni certifica su entrega. Si se escriben diez dígitos se antepone `52` (México); para otros países, captura el prefijo internacional.
-- Todavía no incluye logo personalizado del taller, ticket PNG, estadísticas por rango de fechas, importación de escritorio, protección con PIN/biometría ni bitácora de WhatsApp.
-- No se solicitan permisos de red, contactos, teléfono ni acceso general al almacenamiento. La apertura de WhatsApp/navegador se delega al sistema y puede requerir internet en esa aplicación.
+- Todavía no incluye estadísticas por rango de fechas, importación de escritorio, protección con PIN/biometría ni bitácora de WhatsApp.
+- Se solicitan permisos Bluetooth al usarlo y ubicación solo para detección en Android 8–11 (sin leer coordenadas). No se solicitan permisos de red, contactos, teléfono ni acceso general al almacenamiento. La apertura de WhatsApp/navegador se delega al sistema y puede requerir internet en esa aplicación.
 - La base local y los respaldos **no tienen cifrado propio de la app**. No registres contraseñas del equipo si no son necesarias; protege el teléfono con bloqueo y guarda los respaldos en un destino privado. La copia de seguridad automática Android está desactivada. Desinstalar borra los datos locales.
 
 ## Compilar automáticamente en GitHub
@@ -92,7 +94,10 @@ python3 -m unittest discover -s tools -p 'test_*.py' -v
 | `app/src/main/java/com/abcell/movil/MainActivity.java` | Pantallas nativas, formularios, navegación e intents Android |
 | `WorkshopDb.java` | SQLite, reglas de órdenes y pagos, configuración y respaldos |
 | `Money.java` | Cálculo de importes en centavos |
-| `TicketPrinter.java` | Impresión/PDF paginado con Android Print Framework |
+| `ReceiptRenderer.java`, `ReceiptActivity.java` | Composición gráfica y vista previa/PNG de la nota de PC |
+| `TicketPrinter.java` | Impresión/PDF de la misma nota gráfica con tamaño de rollo |
+| `BluetoothPrinterActivity.java`, `BluetoothPrintJob.java`, `EscPosRaster.java` | Detección, vinculación y envío ESC/POS raster por SPP |
+| `PaperProfile.java`, `ReceiptLogo.java` | Perfiles 58/80 mm y logo portable del taller |
 | `app/src/main/assets/schema.sql` | Las seis tablas copiadas de ABCell Pro |
 | `app/src/main/assets/catalogo.json` | Catálogos y datos iniciales del proyecto original |
 | `app/src/main/res/` | Identidad, iconos, tema oscuro Lima y nombre de la app |

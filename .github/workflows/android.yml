@@ -117,7 +117,7 @@ jobs:
           target: google_apis
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: ./tools/ci_gradle.sh connectedDebugAndroidTest
+          script: ./tools/device_tests.sh
       - name: Publicar pruebas en dispositivo
         if: always()
         uses: actions/upload-artifact@v7.0.2
@@ -126,4 +126,12 @@ jobs:
           path: |
             app/build/reports/androidTests/
             app/build/outputs/androidTest-results/
+          if-no-files-found: ignore
+
+      - name: Publicar vistas de notas gráficas
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: notas-preview-android-${{ matrix.api }}
+          path: app/build/receipt-previews/
           if-no-files-found: ignore
