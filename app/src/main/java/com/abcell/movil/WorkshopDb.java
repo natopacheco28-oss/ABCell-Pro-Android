@@ -91,13 +91,30 @@ public final class WorkshopDb extends SQLiteOpenHelper {
         return v;
     }
     public static long amount(JSONObject row, String key) { return Money.stored(row.optDouble(key, 0)); }
+    private static long validMoney(JSONObject row, String key) {
+        Object raw = row.opt(key);
+        if (raw == null) return 0;
+        if (!(raw instanceof Number)) throw new IllegalArgumentException("Importe no válido: " + key);
+        double value = ((Number)raw).doubleValue();
+        long cents = Money.stored(value);
+        if (!Double.isFinite(value) || value < 0 || cents > 99999999900L || Math.abs(value * 100 - cents) > 0.0001)
+            throw new IllegalArgumentException("Importe no válido: " + key);
+        return cents;
+    }
+    private static void validStock(JSONObject row, String key) {
+        Object raw = row.opt(key);
+        if (!(raw instanceof Number)) throw new IllegalArgumentException("Existencias no válidas");
+        double n = ((Number)raw).doubleValue();
+        if (!Double.isFinite(n) || n < 0 || n > 10000000 || n != Math.floor(n)) throw new IllegalArgumentException("Existencias no válidas");
+    }
     private static void required(JSONObject row, String... keys) {
         for (String key : keys) if (row.optString(key, "").trim().isEmpty()) throw new IllegalArgumentException("Completa los campos obligatorios.");
     }
     public long saveOrder(JSONObject data, long id) {
         required(data, "cliente_nombre", "cliente_tel", "marca", "modelo", "falla");
-        long total = amount(data, "costo_total");
-        long paid = id == 0 ? amount(data, "anticipo") : amount(order(id), "anticipo");
+        long total = validMoney(data, "costo_total");
+        validMoney(data, "costo_repuesto");
+        long paid = id == 0 ? validMoney(data, "anticipo") : amount(order(id), "anticipo");
         long balance = Money.balance(total, paid);
         ContentValues v = values(data);
         v.remove("folio");
@@ -148,6 +165,10 @@ public final class WorkshopDb extends SQLiteOpenHelper {
     public long saveItem(String table, JSONObject row, long id) {
         if (!Arrays.asList("inventario", "servicios_catalogo", "ubicaciones").contains(table)) throw new IllegalArgumentException("Tabla no válida");
         required(row, "nombre");
+        if (table.equals("inventario")) {
+            validStock(row, "stock"); validStock(row, "stock_minimo");
+            validMoney(row, "costo_compra"); validMoney(row, "precio_venta");
+        } else if (table.equals("servicios_catalogo")) validMoney(row, "precio");
         ContentValues v = values(row); v.remove("id");
         if (table.equals("inventario")) v.put("fecha_actualizacion", now());
         if (id == 0) return getWritableDatabase().insertOrThrow(table, null, v);
@@ -228,11 +249,18 @@ public final class WorkshopDb extends SQLiteOpenHelper {
             }
             for (JSONObject o : rows("SELECT * FROM ordenes")) {
                 required(o, "cliente_nombre", "cliente_tel", "marca", "modelo", "falla", "fecha_ingreso");
-                long total = amount(o, "costo_total"), paid = amount(o, "anticipo");
+                long total = validMoney(o, "costo_total"), paid = validMoney(o, "anticipo");
+                validMoney(o, "costo_repuesto"); validMoney(o, "saldo");
                 if (Money.balance(total, paid) != amount(o, "saldo") || !Arrays.asList(STATES).contains(o.optString("estatus"))) throw new IllegalArgumentException("Orden inconsistente");
                 JSONObject payments = rows("SELECT COALESCE(SUM(monto),0) AS total FROM pagos_orden WHERE folio=?", o.optString("folio")).get(0);
                 if (amount(payments, "total") != paid) throw new IllegalArgumentException("Historial de abonos inconsistente");
             }
+            for (JSONObject p : rows("SELECT * FROM pagos_orden")) if (validMoney(p, "monto") <= 0) throw new IllegalArgumentException("Abono no válido");
+            for (JSONObject item : rows("SELECT * FROM inventario")) {
+                required(item, "nombre"); validStock(item, "stock"); validStock(item, "stock_minimo");
+                validMoney(item, "costo_compra"); validMoney(item, "precio_venta");
+            }
+            for (JSONObject service : rows("SELECT * FROM servicios_catalogo")) { required(service, "nombre"); validMoney(service, "precio"); }
             if (!rows("SELECT id FROM pagos_orden WHERE monto<=0").isEmpty() || !rows("SELECT id FROM inventario WHERE stock<0 OR stock_minimo<0 OR costo_compra<0 OR precio_venta<0").isEmpty()) throw new IllegalArgumentException("Importes o existencias no válidos");
             try (Cursor check = db.rawQuery("PRAGMA foreign_key_check", null)) { if (check.moveToFirst()) throw new IllegalArgumentException("Relaciones de respaldo no válidas"); }
             db.setTransactionSuccessful();

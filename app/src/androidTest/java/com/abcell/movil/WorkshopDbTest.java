@@ -38,6 +38,17 @@ public class WorkshopDbTest {
         try{db.restore(backup);fail();}catch(IllegalArgumentException expected){}
         assertEquals(8000,WorkshopDb.amount(db.order(id),"saldo"));assertEquals(1,db.rows("SELECT * FROM pagos_orden").size());
     }
+    @Test public void negativeCatalogBackupRollsBack() throws Exception {
+        JSONObject backup=db.snapshot();backup.getJSONObject("tables").getJSONArray("servicios_catalogo").getJSONObject(0).put("precio",-1);
+        try{db.restore(backup);fail();}catch(IllegalArgumentException expected){}
+        assertTrue(db.rows("SELECT id FROM servicios_catalogo WHERE precio<0").isEmpty());
+        assertEquals(5,db.rows("SELECT * FROM servicios_catalogo").size());
+    }
+    @Test public void invalidProductIsRejectedByService() throws Exception {
+        JSONObject p=new JSONObject().put("nombre","Pantalla").put("stock",-1).put("stock_minimo",2).put("costo_compra",0).put("precio_venta",0);
+        try{db.saveItem("inventario",p,0);fail();}catch(IllegalArgumentException expected){}
+        assertTrue(db.rows("SELECT * FROM inventario").isEmpty());
+    }
     @Test public void deletionRemovesPaymentHistory() throws Exception {long id=db.saveOrder(order(),0);db.delete("ordenes",id);assertTrue(db.rows("SELECT * FROM pagos_orden").isEmpty());}
     @Test public void locationRenamePropagates() throws Exception {
         long id=db.saveOrder(order().put("ubicacion","Mostrador"),0);
