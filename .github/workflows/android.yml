@@ -30,7 +30,7 @@ jobs:
       - name: Verificar origen y esquema
         run: python3 -m unittest discover -s tools -p 'test_*.py' -v
       - name: Pruebas, lint y APK instalable de prueba
-        run: ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug
+        run: ./tools/ci_gradle.sh testDebugUnitTest lintDebug assembleDebug
       - name: Preparar APK
         run: |
           mkdir -p artifacts
@@ -117,7 +117,7 @@ jobs:
           target: google_apis
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: ./gradlew --no-daemon connectedDebugAndroidTest
+          script: ./tools/ci_gradle.sh connectedDebugAndroidTest
       - name: Publicar pruebas en dispositivo
         if: always()
         uses: actions/upload-artifact@v7.0.2
