@@ -193,7 +193,11 @@ public final class BluetoothPrinterActivity extends ScreenActivity {
         search.setEnabled(!printing);printTest.setEnabled(!printing);if(printOrder!=null)printOrder.setEnabled(!printing);
         paper.setEnabled(!printing);cut.setEnabled(!printing);insecure.setEnabled(!printing);cancel.setVisibility(printing?android.view.View.VISIBLE:android.view.View.GONE);showDevices();
     }
-    @Override public void onBackPressed(){if(activeJob!=null)new AlertDialog.Builder(this).setTitle("¿Cancelar y salir?").setMessage("La nota podría salir parcialmente. No se reenvía automáticamente.").setNegativeButton("Continuar imprimiendo",null).setPositiveButton("Cancelar y salir",(d,w)->{activeJob.cancel();finish();}).show();else super.onBackPressed();}
+    @Override public void onBackPressed(){
+        BluetoothPrintJob job=activeJob;
+        if(job!=null)new AlertDialog.Builder(this).setTitle("¿Cancelar y salir?").setMessage("La nota podría salir parcialmente. No se reenvía automáticamente.").setNegativeButton("Continuar imprimiendo",null).setPositiveButton("Cancelar y salir",(d,w)->{job.cancel();finish();}).show();
+        else super.onBackPressed();
+    }
     @Override protected void onSaveInstanceState(Bundle out){super.onSaveInstanceState(out);out.putString("pairing",pairingAddress);out.putBoolean("printing",activeJob!=null);}
     @Override protected void onStop(){stopDiscovery(null);super.onStop();}
     @Override protected void onDestroy(){destroyed=true;handler.removeCallbacksAndMessages(null);if(registered)unregisterReceiver(receiver);if(activeJob!=null)activeJob.cancel();worker.shutdownNow();db.close();super.onDestroy();}
