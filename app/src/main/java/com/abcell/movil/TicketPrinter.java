@@ -41,7 +41,8 @@ public final class TicketPrinter extends PrintDocumentAdapter {
                                    CancellationSignal cancel, LayoutResultCallback callback, Bundle extras) {
         if(cancel.isCanceled()){callback.onLayoutCancelled();return;}
         attributes=newAttributes; lines.clear();
-        try(PrintedPdfDocument document=new PrintedPdfDocument(activity,attributes)) {
+        PrintedPdfDocument document=new PrintedPdfDocument(activity,attributes);
+        try {
             float width=document.getPageContentRect().width();
             linesPerPage=Math.max(1,(int)(document.getPageContentRect().height()/LINE_HEIGHT)-1);
             for(String paragraph:text.split("\n",-1)) {
@@ -57,12 +58,13 @@ public final class TicketPrinter extends PrintDocumentAdapter {
             pageCount=Math.max(1,(lines.size()+linesPerPage-1)/linesPerPage);
             callback.onLayoutFinished(new PrintDocumentInfo.Builder(name+".pdf").setContentType(PrintDocumentInfo.CONTENT_TYPE_DOCUMENT).setPageCount(pageCount).build(),true);
         } catch(Exception e){callback.onLayoutFailed("No se pudo preparar el ticket.");}
+        finally { document.close(); }
     }
     @Override public void onWrite(PageRange[] ranges, ParcelFileDescriptor destination,
                                   CancellationSignal cancel, WriteResultCallback callback) {
         List<PageRange> written=new ArrayList<>();
-        try(PrintedPdfDocument doc=new PrintedPdfDocument(activity,attributes);
-            FileOutputStream out=new FileOutputStream(destination.getFileDescriptor())) {
+        PrintedPdfDocument doc=new PrintedPdfDocument(activity,attributes);
+        try(FileOutputStream out=new FileOutputStream(destination.getFileDescriptor())) {
             for(int p=0;p<pageCount;p++) {
                 if(cancel.isCanceled()){callback.onWriteCancelled();return;}
                 boolean selected=false;for(PageRange r:ranges)if(p>=r.getStart()&&p<=r.getEnd())selected=true;
@@ -74,5 +76,6 @@ public final class TicketPrinter extends PrintDocumentAdapter {
             }
             doc.writeTo(out);callback.onWriteFinished(written.toArray(new PageRange[0]));
         } catch(Exception e){callback.onWriteFailed("No se pudo guardar o imprimir el ticket.");}
+        finally { doc.close(); }
     }
 }
