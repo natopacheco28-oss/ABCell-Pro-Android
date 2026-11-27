@@ -1,0 +1,103 @@
+{
+  "ubicaciones": [
+    {
+      "id": 1,
+      "nombre": "Mostrador",
+      "tipo": "Recepción",
+      "descripcion": "Recepción y entrega rápida",
+      "activo": 1
+    },
+    {
+      "id": 2,
+      "nombre": "Estante A-1",
+      "tipo": "Estante",
+      "descripcion": "Celulares y tablets",
+      "activo": 1
+    },
+    {
+      "id": 3,
+      "nombre": "Estante B-1",
+      "tipo": "Estante",
+      "descripcion": "Consolas y controles",
+      "activo": 1
+    },
+    {
+      "id": 4,
+      "nombre": "Gaveta 1",
+      "tipo": "Gaveta",
+      "descripcion": "Equipos en diagnóstico o refacción",
+      "activo": 1
+    }
+  ],
+  "servicios_catalogo": [
+    {
+      "id": 1,
+      "categoria": "Celulares",
+      "marca": "Samsung",
+      "modelo": "",
+      "nombre": "Cambio de pantalla / módulo",
+      "precio": 950.0,
+      "activo": 1
+    },
+    {
+      "id": 2,
+      "categoria": "Celulares",
+      "marca": "Apple (iPhone)",
+      "modelo": "",
+      "nombre": "Cambio de batería",
+      "precio": 650.0,
+      "activo": 1
+    },
+    {
+      "id": 3,
+      "categoria": "Celulares",
+      "marca": "",
+      "modelo": "",
+      "nombre": "Limpieza de centro de carga",
+      "precio": 250.0,
+      "activo": 1
+    },
+    {
+      "id": 4,
+      "categoria": "Consolas",
+      "marca": "PlayStation 4",
+      "modelo": "",
+      "nombre": "Mantenimiento y cambio de pasta térmica",
+      "precio": 550.0,
+      "activo": 1
+    },
+    {
+      "id": 5,
+      "categoria": "Consolas",
+      "marca": "Xbox One",
+      "modelo": "",
+      "nombre": "Mantenimiento y limpieza interna",
+      "precio": 550.0,
+      "activo": 1
+    }
+  ],
+  "categorias": [
+    "Celulares",
+    "Consolas",
+    "Tablets",
+    "Laptops",
+    "Smartwatches",
+    "Accesorios",
+    "Otros"
+  ],
+  "estados": [
+    "Recibido",
+    "En diagnóstico",
+    "Esperando refacción",
+    "En reparación",
+    "Listo para entregar",
+    "Entregado",
+    "Cancelado"
+  ],
+  "metodos": [
+    "Efectivo",
+    "Transferencia",
+    "Tarjeta",
+    "Depósito"
+  ]
+}
